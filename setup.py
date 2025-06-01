@@ -27,7 +27,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "git-commit-summarizer=src.cli:main",
+            "git-commit-summarizer=cli:main",
         ],
     },
     package_dir={"":"."},  # Indique que les packages sont dans le répertoire racine
