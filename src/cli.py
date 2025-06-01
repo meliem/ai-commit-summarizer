@@ -1,109 +1,153 @@
-"""Interface en ligne de commande pour l'AI Commit Summarizer."""
+"""Command-line interface for the AI Commit Summarizer."""
 
-import sys
-import os
 import click
-from colorama import init, Fore, Style
+import os
+import sys
+from typing import Dict, List
+import time
+from colorama import Fore, Style, init
+from tqdm import tqdm
+import subprocess
 
 from .main import CommitSummarizer
+from .config import Config
 
-
-# Initialiser colorama pour les couleurs dans le terminal
+# Initialize colorama for cross-platform colored output
 init()
 
 
-def print_colored(text, color=Fore.WHITE, style=Style.NORMAL, end='\n'):
-    """Affiche du texte coloré dans le terminal."""
-    print(f"{style}{color}{text}{Style.RESET_ALL}", end=end)
+def print_title():
+    """Print the application title."""
+    click.echo(f"{Fore.CYAN}🧠 AI Commit Summarizer{Style.RESET_ALL}")
+    click.echo(f"{Fore.BLUE}Intelligent commit message generator for Git{Style.RESET_ALL}")
+    click.echo("")
 
 
-def print_header():
-    """Affiche l'en-tête de l'application."""
-    print_colored("🧠 AI Commit Summarizer", Fore.CYAN, Style.BRIGHT)
-    print_colored("Générateur de résumés intelligents pour les commits Git", Fore.CYAN)
-    print()
+def print_error(message: str):
+    """Print an error message."""
+    click.echo(f"{Fore.RED}⚠️  {message}{Style.RESET_ALL}")
 
 
-def print_summary(result):
-    """Affiche le résumé de l'analyse des changements."""
-    if result["status"] == "error":
-        print_colored(f"⚠️  {result['message']}", Fore.YELLOW)
-        return
+def print_analysis(analysis: Dict):
+    """Print the analysis results."""
+    diff_analysis = analysis.get("diff_analysis", {})
+    categories = analysis.get("categories", [])
+    
+    click.echo(f"{Fore.YELLOW}📊 Analysis of changes:{Style.RESET_ALL}")
+    click.echo(f"  • Files modified: {diff_analysis.get('files_changed', 0)}")
+    click.echo(f"  • Lines added: {diff_analysis.get('additions', 0)}")
+    click.echo(f"  • Lines deleted: {diff_analysis.get('deletions', 0)}")
+    click.echo(f"  • File types: {', '.join(diff_analysis.get('file_types', []))}")
+    click.echo(f"  • Categories: {', '.join(categories)}")
+    click.echo("")
+
+
+def print_commit_message(message: str):
+    """Print the commit message."""
+    click.echo(f"{Fore.GREEN}✨ Suggested commit message:{Style.RESET_ALL}")
+    click.echo(message)
+    click.echo("")
+
+
+def show_loading_animation(duration: int = 2):
+    """Show a loading animation while waiting for AI to generate a message."""
+    with tqdm(total=100, desc="Generating commit message", 
+              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}", 
+              colour="green") as pbar:
+        increment = 100 / duration / 10
+        for _ in range(duration * 10):
+            time.sleep(0.1)
+            pbar.update(increment)
+
+
+def do_git_commit(message: str) -> bool:
+    """
+    Create a Git commit with the provided message.
+    
+    Args:
+        message: The commit message.
         
-    diff_analysis = result["diff_analysis"]
-    categories = result["categories"]
-    functions = result.get("functions", [])
-    
-    print_colored("📊 Analyse des changements:", Fore.GREEN, Style.BRIGHT)
-    print_colored(f"  • Fichiers modifiés: {diff_analysis['files_changed']}", Fore.GREEN)
-    print_colored(f"  • Lignes ajoutées: {diff_analysis['additions']}", Fore.GREEN)
-    print_colored(f"  • Lignes supprimées: {diff_analysis['deletions']}", Fore.GREEN)
-    
-    if diff_analysis['file_types']:
-        print_colored(f"  • Types de fichiers: {', '.join(diff_analysis['file_types'])}", Fore.GREEN)
-    
-    if categories:
-        print_colored(f"  • Catégories: {', '.join(categories)}", Fore.GREEN)
-    
-    if functions:
-        print_colored(f"  • Fonctions modifiées: {', '.join(functions[:5])}", Fore.GREEN)
-        if len(functions) > 5:
-            print_colored(f"    et {len(functions) - 5} autres...", Fore.GREEN)
-    
-    print()
-    
-    print_colored("✨ Message de commit suggéré:", Fore.MAGENTA, Style.BRIGHT)
-    print_colored(f"{result['commit_message']}", Fore.MAGENTA)
+    Returns:
+        True if the commit was successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        click.echo(result.stdout)
+        click.echo(f"{Fore.GREEN}✅ Commit created successfully!{Style.RESET_ALL}")
+        return True
+    except subprocess.CalledProcessError as e:
+        click.echo(f"{Fore.RED}Error creating commit: {e.stderr}{Style.RESET_ALL}")
+        return False
 
 
 @click.command()
-@click.option('--style', '-s', default='descriptive', 
-              type=click.Choice(['conventional', 'descriptive']),
-              help='Style du message de commit.')
-@click.option('--lang', '-l', default='fr',
-              type=click.Choice(['fr', 'en']),
-              help='Langue du message de commit.')
-@click.option('--unstaged', '-u', is_flag=True,
-              help='Analyser les changements non stagés au lieu des changements en staging.')
-@click.option('--commit', '-c', is_flag=True,
-              help='Créer directement un commit avec le message généré.')
-def main(style, lang, unstaged, commit):
-    """
-    Analyse les changements Git et génère un message de commit intelligent.
+@click.option(
+    "--style", "-s",
+    type=click.Choice(["descriptive", "conventional", "ai"]),
+    default=Config.DEFAULT_STYLE,
+    help="Style of the commit message"
+)
+@click.option(
+    "--language", "-l",
+    default=Config.DEFAULT_LANGUAGE,
+    help="Language of the commit message (en, fr, etc.)"
+)
+@click.option(
+    "--unstaged", "-u",
+    is_flag=True,
+    help="Analyze unstaged changes instead of staged ones"
+)
+@click.option(
+    "--commit", "-c",
+    is_flag=True,
+    help="Create a commit with the generated message"
+)
+@click.option(
+    "--model", "-m",
+    default=Config.OPENAI_MODEL,
+    help="Model to use for AI-powered message generation"
+)
+def main(style: str, language: str, unstaged: bool, commit: bool, model: str):
+    """Generate an intelligent commit message based on your Git changes."""
+    print_title()
     
-    Exemple d'utilisation:
-        git-commit-summarizer --style conventional --lang fr
-    """
-    print_header()
-    
-    # Vérifier que nous sommes dans un dépôt Git
-    if not os.path.exists('.git'):
-        print_colored("⚠️  Ce n'est pas un dépôt Git valide.", Fore.RED)
+    # Check if we are in a Git repository
+    if not os.path.exists(".git"):
+        print_error("Not a Git repository. Please run this command inside a Git repository.")
         sys.exit(1)
     
-    # Créer le résumeur de commits
-    summarizer = CommitSummarizer(lang=lang, style=style)
+    # Create a CommitSummarizer instance
+    summarizer = CommitSummarizer(model_name=model, language=language)
     
-    # Analyser les changements
-    if unstaged:
-        result = summarizer.summarize_unstaged_changes()
-    else:
-        result = summarizer.summarize_staged_changes()
+    # Get the commit message
+    if style == "ai":
+        # Show a loading animation for AI-powered message generation
+        show_loading_animation(2)
     
-    # Afficher le résumé
-    print_summary(result)
+    result = summarizer.get_commit_message(staged=not unstaged, style=style)
     
-    # Créer un commit si demandé
-    if commit and result["status"] == "success":
-        commit_message = result["commit_message"]
-        
-        try:
-            # Utiliser la commande git directement
-            os.system(f'git commit -m "{commit_message}"')
-            print_colored("\n✅ Commit créé avec succès!", Fore.GREEN, Style.BRIGHT)
-        except Exception as e:
-            print_colored(f"\n❌ Erreur lors de la création du commit: {str(e)}", Fore.RED)
+    if "error" in result:
+        if unstaged:
+            print_error(f"{result['error']}. Use 'git add' to stage files for commit.")
+        else:
+            print_error(f"{result['error']}. Make changes and use 'git add' to stage files for commit.")
+        sys.exit(1)
+    
+    # Print the analysis
+    print_analysis(result)
+    
+    # Print the commit message
+    print_commit_message(result["commit_message"])
+    
+    # Create a commit if requested
+    if commit:
+        do_git_commit(result["commit_message"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

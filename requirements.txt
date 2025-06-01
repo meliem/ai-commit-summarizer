@@ -2,8 +2,10 @@ gitpython>=3.1.30
 click>=8.1.3
 colorama>=0.4.6
 tqdm>=4.65.0
+openai>=1.0.0
+python-dotenv>=1.0.0
 
-# Dépendances optionnelles pour l'IA
-# Décommentez ces lignes si vous souhaitez utiliser les fonctionnalités d'IA
+# Optional AI dependencies
+# Uncomment these lines if you want to use the local AI models
 # transformers>=4.28.0
 # torch>=2.0.0

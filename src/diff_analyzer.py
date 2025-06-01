@@ -1,175 +1,196 @@
-"""Module pour analyser les différences Git et extraire des informations pertinentes."""
+"""Module for analyzing Git diffs."""
 
+import re
 import os
-from typing import Dict, List, Tuple
-import git
+from typing import Dict, List, Optional, Set, Tuple
 from git import Repo
 
 
 class DiffAnalyzer:
-    """Classe pour analyser les différences Git et extraire des informations pertinentes."""
+    """Class for analyzing Git diffs."""
 
     def __init__(self, repo_path: str = None):
         """
-        Initialise l'analyseur de diff.
+        Initialize the diff analyzer.
 
         Args:
-            repo_path: Chemin vers le dépôt Git. Si None, utilise le répertoire courant.
+            repo_path: Path to the Git repository. If None, the current directory is used.
         """
         self.repo_path = repo_path or os.getcwd()
-        try:
-            self.repo = Repo(self.repo_path)
-        except git.exc.InvalidGitRepositoryError:
-            raise ValueError(f"Le répertoire {self.repo_path} n'est pas un dépôt Git valide.")
+        self.repo = Repo(self.repo_path)
 
     def get_staged_diff(self) -> str:
         """
-        Récupère les différences des fichiers en staging.
+        Get the diff for staged changes.
 
         Returns:
-            Le texte de différence des fichiers en staging.
+            The diff text for staged changes.
         """
-        diff = self.repo.git.diff("--staged")
-        return diff
+        return self.repo.git.diff("--cached")
 
     def get_unstaged_diff(self) -> str:
         """
-        Récupère les différences des fichiers non stagés.
+        Get the diff for unstaged changes.
 
         Returns:
-            Le texte de différence des fichiers non stagés.
+            The diff text for unstaged changes.
         """
-        diff = self.repo.git.diff()
-        return diff
+        return self.repo.git.diff()
 
     def analyze_diff(self, diff_text: str) -> Dict:
         """
-        Analyse le texte de différence pour extraire des informations utiles.
+        Analyze a diff and extract information.
 
         Args:
-            diff_text: Le texte de différence à analyser.
+            diff_text: The diff text to analyze.
 
         Returns:
-            Un dictionnaire contenant des informations sur les modifications:
-            {
-                'files_changed': nombre de fichiers modifiés,
-                'additions': nombre de lignes ajoutées,
-                'deletions': nombre de lignes supprimées,
-                'file_types': types de fichiers modifiés,
-                'file_changes': détails des modifications par fichier
-            }
+            A dictionary with the analysis results.
         """
-        if not diff_text:
-            return {
-                'files_changed': 0,
-                'additions': 0,
-                'deletions': 0,
-                'file_types': [],
-                'file_changes': {}
-            }
-
-        files_changed = []
+        lines = diff_text.split("\n")
+        files_changed = 0
         additions = 0
         deletions = 0
-        file_types = set()
-        file_changes = {}
+        file_types: Set[str] = set()
+        file_paths: List[str] = []
 
-        # Analyse de base des fichiers modifiés
+        # Regular expressions for parsing diff
+        file_pattern = re.compile(r"^diff --git a/(.+) b/(.+)$")
+        addition_pattern = re.compile(r"^\+[^+]")
+        deletion_pattern = re.compile(r"^-[^-]")
+
         current_file = None
-        file_content = []
 
-        for line in diff_text.split('\n'):
-            if line.startswith('diff --git'):
-                # Nouveau fichier dans le diff
-                if current_file:
-                    file_changes[current_file] = '\n'.join(file_content)
+        for line in lines:
+            # Match file changes
+            file_match = file_pattern.match(line)
+            if file_match:
+                files_changed += 1
+                current_file = file_match.group(2)
+                file_paths.append(current_file)
                 
-                file_path = line.split(' b/')[1]
-                current_file = file_path
-                files_changed.append(file_path)
-                file_content = []
+                # Extract file extension
+                _, ext = os.path.splitext(current_file)
+                if ext:
+                    file_types.add(ext[1:])  # Remove the dot
                 
-                # Extraire l'extension du fichier
-                file_ext = os.path.splitext(file_path)[1][1:] if '.' in file_path else 'no_extension'
-                if file_ext:
-                    file_types.add(file_ext)
-            
-            elif line.startswith('+') and not line.startswith('+++'):
+            # Count additions and deletions
+            elif addition_pattern.match(line):
                 additions += 1
-                file_content.append(line)
-            
-            elif line.startswith('-') and not line.startswith('---'):
+            elif deletion_pattern.match(line):
                 deletions += 1
-                file_content.append(line)
-            
-            else:
-                file_content.append(line)
-        
-        # Ajouter le dernier fichier
-        if current_file:
-            file_changes[current_file] = '\n'.join(file_content)
 
         return {
-            'files_changed': len(files_changed),
-            'additions': additions,
-            'deletions': deletions,
-            'file_types': list(file_types),
-            'file_changes': file_changes
+            "files_changed": files_changed,
+            "additions": additions,
+            "deletions": deletions,
+            "file_types": list(file_types),
+            "file_paths": file_paths,
         }
 
-    def categorize_changes(self, diff_analysis: Dict) -> List[str]:
+    def categorize_changes(self, diff_text: str, file_paths: List[str]) -> List[str]:
         """
-        Catégorise les types de modifications effectuées.
+        Categorize the changes in the diff.
 
         Args:
-            diff_analysis: Le résultat de l'analyse de diff.
+            diff_text: The diff text to analyze.
+            file_paths: List of file paths modified in the diff.
 
         Returns:
-            Une liste de catégories de modifications (feat, fix, refactor, etc.)
+            A list of change categories (feat, fix, docs, etc.).
         """
-        categories = []
+        categories: Set[str] = set()
         
-        # Analyse basée sur les noms de fichiers et extensions
-        file_types = diff_analysis['file_types']
-        
-        # Tests modifiés
-        if any(file.endswith('test.py') or file.endswith('_test.py') or '/tests/' in file 
-               for file in diff_analysis['file_changes'].keys()):
-            categories.append('test')
-        
-        # Documentation
-        if 'md' in file_types or 'rst' in file_types or 'txt' in file_types:
-            categories.append('docs')
+        # Helper function to check if any path matches a pattern
+        def any_path_matches(pattern: str) -> bool:
+            return any(re.search(pattern, path, re.IGNORECASE) for path in file_paths)
             
-        # Configuration
-        config_files = ['.json', '.yaml', '.yml', '.toml', '.ini', '.conf']
-        if any(ext in file_types for ext in ['json', 'yaml', 'yml', 'toml', 'ini', 'conf']):
-            categories.append('config')
+        # Check for documentation changes
+        if any_path_matches(r'README|docs|\.md$|documentation|wiki'):
+            categories.add('docs')
             
-        # Par défaut, si aucune catégorie n'est détectée
-        if not categories:
-            categories.append('feat')  # Par défaut, considérer comme une fonctionnalité
+        # Check for test changes
+        if any_path_matches(r'test|spec|\.test\.|\.spec\.'):
+            categories.add('test')
             
-        return categories
+        # Check for style changes
+        if any_path_matches(r'\.css$|\.scss$|\.less$|style|theme'):
+            categories.add('style')
+            
+        # Check for build system changes
+        if any_path_matches(r'package\.json|requirements\.txt|setup\.py|Makefile|CMakeLists\.txt|webpack|build'):
+            categories.add('build')
+            
+        # Check for CI changes
+        if any_path_matches(r'\.github|\.travis|\.gitlab|\.circleci|\.jenkins|\.azure'):
+            categories.add('ci')
+            
+        # Look for potential bug fixes in the diff content
+        if re.search(r'fix|bug|issue|problem|error|crash|exception', diff_text, re.IGNORECASE):
+            categories.add('fix')
+            
+        # Look for potential features or enhancements
+        if re.search(r'feat|feature|add|new|implement', diff_text, re.IGNORECASE):
+            categories.add('feat')
+            
+        # Look for potential refactoring
+        if re.search(r'refactor|clean|improve|enhance|optimize', diff_text, re.IGNORECASE):
+            categories.add('refactor')
+            
+        # If no specific category was identified, default to 'chore'
+        if len(categories) == 0:
+            categories.add('chore')
+            
+        return list(categories)
 
     def extract_modified_functions(self, diff_text: str) -> List[str]:
         """
-        Extrait les noms de fonctions modifiées à partir du texte de différence.
-        Ceci est une implémentation simple et pourrait nécessiter une analyse syntaxique plus avancée.
+        Extract the names of modified functions from the diff.
 
         Args:
-            diff_text: Le texte de différence à analyser.
+            diff_text: The diff text to analyze.
 
         Returns:
-            Une liste de noms de fonctions modifiées.
+            A list of modified function names.
         """
-        functions = []
+        functions: Set[str] = set()
         
-        # Recherche basique des définitions de fonctions (pour Python)
-        for line in diff_text.split('\n'):
-            if line.startswith('+') and 'def ' in line:
-                # Extraction simple du nom de fonction
-                func_name = line.split('def ')[1].split('(')[0].strip()
-                functions.append(func_name)
+        # Regular expressions for identifying functions in different languages
+        patterns = {
+            "python": r'^\+\s*def\s+([a-zA-Z0-9_]+)\s*\(',
+            "javascript": r'^\+\s*(async\s+)?function\s+([a-zA-Z0-9_$]+)|^\+\s*const\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?\(|^\+\s*([a-zA-Z0-9_$]+)\s*:\s*(?:async\s*)?\(',
+            "java": r'^\+\s*(public|private|protected|static)?\s+(?:\w+)\s+([a-zA-Z0-9_]+)\s*\(',
+            "cpp": r'^\+\s*(?:\w+\s+)+([a-zA-Z0-9_]+)\s*\(',
+        }
         
-        return functions
+        # Process each line of the diff
+        lines = diff_text.split('\n')
+        for line in lines:
+            # Check for Python functions
+            python_match = re.search(patterns["python"], line)
+            if python_match:
+                functions.add(python_match.group(1))
+                continue
+                
+            # Check for JavaScript functions
+            js_match = re.search(patterns["javascript"], line)
+            if js_match:
+                # Check which group matched (regular function, arrow function, or method)
+                func_name = next((g for g in js_match.groups() if g), None)
+                if func_name:
+                    functions.add(func_name)
+                continue
+                
+            # Check for Java/C# methods
+            java_match = re.search(patterns["java"], line)
+            if java_match:
+                functions.add(java_match.group(2))
+                continue
+                
+            # Check for C/C++ functions
+            cpp_match = re.search(patterns["cpp"], line)
+            if cpp_match:
+                functions.add(cpp_match.group(1))
+                continue
+        
+        return list(functions)

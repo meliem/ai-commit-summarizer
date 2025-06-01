@@ -10,9 +10,11 @@ setup(
         "click>=8.1.3",
         "colorama>=0.4.6",
         "tqdm>=4.65.0",
+        "openai>=1.0.0",
+        "python-dotenv>=1.0.0",
     ],
     extras_require={
-        "ai": [
+        "local_ai": [
             "transformers>=4.28.0",
             "torch>=2.0.0",
         ],

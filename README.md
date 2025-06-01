@@ -1,58 +1,85 @@
-# AI Commit Summarizer
+# 🧠 AI Commit Summarizer
 
-A command-line tool that analyzes code changes (git diff) and automatically generates clear and structured commit messages in natural language.
+Intelligent commit message generator for Git repositories.
 
-## 🎯 Problem Solved
+## 📝 Overview
 
-Commit messages are often neglected or uninformative, making Git history difficult to understand. This tool helps developers generate meaningful commit messages with no extra effort.
+The AI Commit Summarizer is a command-line tool that automatically generates clear, structured Git commit messages based on your code changes. It analyzes the diff of your staged (or unstaged) changes and produces a human-readable message that describes what was changed and why.
 
-## 💡 Features
+## ✨ Features
 
-- **Semantic Analysis**: Understanding the context of modifications to generate relevant messages
-- **Customization**: Ability to choose the message style (conventional, descriptive, etc.)
-- **Multilingual Support**: Message generation in different languages
-- **Easy Integration**: Compatible with existing Git workflows
+- 🔍 Automatic analysis of staged and unstaged Git changes
+- 📊 Categorization of changes into types (feat, fix, docs, test, etc.)
+- 💻 Detection of modified functions and files
+- 🌐 Support for multiple message formats:
+  - Descriptive messages
+  - Conventional commit messages
+  - AI-powered custom messages (using OpenAI)
+- 🌍 Multilingual support
+- 🎨 Colorized command-line output
+- 🚀 Direct commit creation option
 
-## 🚀 Installation
+## 🛠️ Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/meliem/ai-commit-summarizer.git
+cd ai-commit-summarizer
+
+# Install the package
 pip install -e .
 ```
+
+### OpenAI API Configuration
+
+To use the AI-powered commit message generation, you need to set up an OpenAI API key:
+
+1. Create a `.env` file in the project root directory
+2. Add your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_MODEL=gpt-4o-mini  # Or another model of your choice
+   ```
 
 ## 📋 Usage
 
 ```bash
-# Generate a commit message from staged changes
+# Generate a commit message for staged changes
 git-commit-summarizer
 
-# Specify a message style
+# Generate a commit message for unstaged changes
+git-commit-summarizer --unstaged
+
+# Generate a commit message in conventional format
 git-commit-summarizer --style conventional
 
-# Generate a message in a specific language
-git-commit-summarizer --lang en
+# Generate an AI-powered commit message
+git-commit-summarizer --style ai
 
-# Create a commit directly with the generated message
+# Generate a commit message and commit the changes
 git-commit-summarizer --commit
+
+# Generate a commit message in a specific language
+git-commit-summarizer --language fr
 ```
+
+### Command-line Options
+
+- `--style, -s`: Message style (descriptive, conventional, ai)
+- `--language, -l`: Message language (en, fr, etc.)
+- `--unstaged, -u`: Analyze unstaged changes
+- `--commit, -c`: Create a commit with the generated message
+- `--model, -m`: Specify which model to use for AI-powered generation
 
 ## 🔧 Development
 
-### Prerequisites
-
-- Python 3.8+
-- Git
-
-### Installation for Development
-
 ```bash
-git clone https://github.com/meliem/ai-commit-summarizer.git
-cd ai-commit-summarizer
+# Install development dependencies
 pip install -e ".[dev]"
+
+# Run tests
+pytest
 ```
-
-## 📄 License
-
-MIT
 
 ## 📝 Example
 
@@ -63,3 +90,7 @@ feat: improved user sorting performance by replacing insertion sort with quickso
 ```
 
 This was generated from code changes that replaced a sorting algorithm in the user management module.
+
+## 📄 License
+
+MIT
