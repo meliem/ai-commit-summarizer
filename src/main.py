@@ -54,7 +54,7 @@ class CommitSummarizer:
         
         # Générer le message de commit
         commit_message = self.message_generator.generate_ai_commit_message(
-            diff_text, diff_analysis, categories, self.style
+            diff_text, diff_analysis, categories, self.style, functions
         )
         
         return {
@@ -94,7 +94,7 @@ class CommitSummarizer:
         
         # Générer le message de commit
         commit_message = self.message_generator.generate_ai_commit_message(
-            diff_text, diff_analysis, categories, self.style
+            diff_text, diff_analysis, categories, self.style, functions
         )
         
         return {

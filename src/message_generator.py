@@ -2,7 +2,10 @@
 
 from typing import Dict, List, Optional
 import os
-from transformers import pipeline
+import importlib.util
+
+# Vérifier si transformers est disponible
+HAS_TRANSFORMERS = importlib.util.find_spec("transformers") is not None
 
 
 class MessageGenerator:
@@ -25,8 +28,14 @@ class MessageGenerator:
 
     def _ensure_model_loaded(self):
         """Assure que le modèle est chargé avant utilisation."""
-        if self.generator is None:
-            self.generator = pipeline('text-generation', model=self.model_name)
+        if self.generator is None and HAS_TRANSFORMERS:
+            try:
+                from transformers import pipeline
+                self.generator = pipeline('text-generation', model=self.model_name)
+            except Exception as e:
+                print(f"Avertissement: Impossible de charger le modèle: {str(e)}")
+                print("Utilisation du mode sans IA.")
+                self.generator = False
 
     def _get_commit_type(self, categories: List[str]) -> str:
         """
@@ -140,7 +149,8 @@ class MessageGenerator:
         return description + stats
 
     def generate_ai_commit_message(self, diff_text: str, diff_analysis: Dict, 
-                                  categories: List[str], style: str = "descriptive") -> str:
+                                  categories: List[str], style: str = "descriptive", 
+                                  functions: List[str] = None) -> str:
         """
         Génère un message de commit intelligent en utilisant l'IA.
         
@@ -149,18 +159,27 @@ class MessageGenerator:
             diff_analysis: Résultat de l'analyse des différences.
             categories: Liste des catégories de modifications.
             style: Style de message à générer (conventional, descriptive, ai).
+            functions: Liste des fonctions modifiées.
 
         Returns:
             Message de commit généré.
         """
         # Pour un MVP, nous utilisons une approche basée sur des règles
-        # Dans une version future, nous utiliserions un modèle de langage plus avancé
         
+        # Vérifier si nous avons un générateur d'IA disponible
+        if style == "ai" and HAS_TRANSFORMERS:
+            self._ensure_model_loaded()
+            if self.generator and self.generator is not False:
+                # TODO: implémenter la génération de texte avec IA
+                # Pour l'instant, on se rabat sur le style descriptif
+                pass
+        
+        # Utiliser les approches basées sur des règles
         if style == "conventional":
             return self.generate_conventional_commit(diff_analysis, categories)
         
         # Style descriptif par défaut
-        return self.generate_descriptive_commit(diff_analysis, categories)
+        return self.generate_descriptive_commit(diff_analysis, categories, functions)
 
     def translate_message(self, message: str, target_lang: str) -> str:
         """

@@ -53,3 +53,13 @@ pip install -e ".[dev]"
 ## 📄 License
 
 MIT
+
+## 📝 Example
+
+Here's an example of a generated commit message:
+
+```
+feat: improved user sorting performance by replacing insertion sort with quicksort algorithm
+```
+
+This was generated from code changes that replaced a sorting algorithm in the user management module.

@@ -8,12 +8,14 @@ setup(
     install_requires=[
         "gitpython>=3.1.30",
         "click>=8.1.3",
-        "transformers>=4.28.0",
-        "torch>=2.0.0",
         "colorama>=0.4.6",
         "tqdm>=4.65.0",
     ],
     extras_require={
+        "ai": [
+            "transformers>=4.28.0",
+            "torch>=2.0.0",
+        ],
         "dev": [
             "pytest>=7.3.1",
             "black>=23.3.0",
