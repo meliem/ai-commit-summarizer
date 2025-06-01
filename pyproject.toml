@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "git-commit-summarizer"
+version = "0.1.0"
+description = "Intelligent commit message generator for Git"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+dependencies = [
+    "gitpython>=3.1.30",
+    "click>=8.1.3",
+    "colorama>=0.4.6",
+    "tqdm>=4.65.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "transformers>=4.20.0",
+    "torch>=1.8.0",
+]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+git-commit-summarizer = "cli:main"
