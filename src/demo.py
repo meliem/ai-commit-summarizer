@@ -1,8 +1,8 @@
 """Demo module to showcase the AI Commit Summarizer functionality."""
 
-def slow_sort_algorithm(items):
+def quick_sort_algorithm(items):
     """
-    A deliberately inefficient sorting algorithm for demonstration.
+    An efficient sorting algorithm using quicksort.
     
     Args:
         items: List of items to sort
@@ -10,18 +10,18 @@ def slow_sort_algorithm(items):
     Returns:
         Sorted list
     """
-    # Bubble sort implementation
-    n = len(items)
-    for i in range(n):
-        for j in range(0, n - i - 1):
-            if items[j] > items[j + 1]:
-                items[j], items[j + 1] = items[j + 1], items[j]
-    return items
+    if len(items) <= 1:
+        return items
+    pivot = items[len(items) // 2]
+    left = [x for x in items if x < pivot]
+    middle = [x for x in items if x == pivot]
+    right = [x for x in items if x > pivot]
+    return quick_sort_algorithm(left) + middle + quick_sort_algorithm(right)
 
 
 def process_user_data(user_list):
     """
-    Process user data with inefficient sorting.
+    Process user data with efficient sorting.
     
     Args:
         user_list: List of user objects
@@ -29,8 +29,8 @@ def process_user_data(user_list):
     Returns:
         Processed user data
     """
-    # Sort users by name using the slow algorithm
-    sorted_users = slow_sort_algorithm(user_list)
+    # Sort users by name using the quick sort algorithm
+    sorted_users = quick_sort_algorithm(user_list)
     
     # Additional processing
     result = []
