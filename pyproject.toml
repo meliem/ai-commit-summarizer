@@ -28,4 +28,4 @@ dev = [
 ]
 
 [project.scripts]
-git-commit-summarizer = "cli:main"
+git-commit-summarizer = "src.cli:main"
