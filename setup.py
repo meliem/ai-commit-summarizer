@@ -30,6 +30,7 @@ setup(
             "git-commit-summarizer=src.cli:main",
         ],
     },
+    package_dir={"":"."},  # Indique que les packages sont dans le répertoire racine
     author="meliem",
     author_email="meliem@example.com",
     description="A tool that automatically generates commit messages from code changes",
